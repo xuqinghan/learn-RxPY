@@ -18,8 +18,19 @@ def demo_flatmap2():
         #ops.flat_map(range)
     ).subscribe(print)
 
+def demo_flatmap3():
+    '''tuple unpacking'''
+    a = rx.of([1, 2],[3, 4])
+
+    a.pipe(
+        ops.flat_map(lambda x: x)
+        #ops.flat_map(range)
+    ).subscribe(print)
+
+
 
 if __name__ == '__main__':
     #demo_zip()
     #demo_flatmap1()
-    demo_flatmap2()
+    #demo_flatmap2()
+    demo_flatmap3()

@@ -26,6 +26,7 @@ def judge_zoc(game, message):
         可能没有改变, 返回None
     '''
     #print(message_location)
+    print(f'{datetime.now()} 进行zoc裁决')
     record_res1 = None
     if message['table'] == 'survival':
         if message['v_to'] <= 1:
@@ -94,11 +95,11 @@ def execute(game, message):
     '''
     if message['table'] == 'zoc':
         #假如执行时间长
-        print('执行 game={game}, zoc指令', message)
+        print(f'{datetime.now()} 执行 game={game}, zoc指令', message)
         time.sleep(1)
         print('zoc执行完毕')
     else:
-        print(f'执行 game={game}, 其他指令{message}')
+        print(f'{datetime.now()} 执行 game={game}, 其他指令{message}')
 
 #模拟执行
 records_stream.subscribe(lambda x: execute(game, x))
