@@ -44,7 +44,7 @@ class DataSource(Process):
     def __init__(self, para):
         super(DataSource, self).__init__()
         self.para=para
-        self.need_run = True
+        self.need_end = True
         self.is_done = False
 
         #用rx +纯函数定义处理流程
@@ -63,32 +63,47 @@ class DataSource(Process):
 
     def run(self):
         '''根据para开始产生数据'''
-        print(f'开始处理通道{para}')
-        while self.need_run:
+        print(f'开始处理通道{self.para}')
+        while True:
+            print('子进程中need_end', self.need_end)
+            if not self.need_end:
+                break
             #模拟产生数据
             time.sleep(1)
             data = '哈哈哈'
             #推送到in_stream
             self.in_stream.on_next(data)
+        print('退出循环')
         #后处理完毕，可以退出
         self.is_done = True
 
-    def terminate(self):
+    def close(self):
+        print('子进程准备结束')
         #通知run结束
-        self.need_run = False
+        self.need_end = False
         #等待run结束
         while not self.is_done:
+            time.sleep(0.01)
             pass
         #结束
-        super().terminate()
+        print('子进程结束')
+        super(DataSource, self).close()
+
+    def end(self):
+        print('子进程准备结束')
+        #通知run结束
+        self.need_end = False
 
 
 if __name__ == '__main__':
 
-    p1= Process(target=one_channel,args=('1',))
-    #p1 = DataSource('asdf')
+    #p1= Process(target=one_channel,args=('1',))
+    p1 = DataSource('asdf')
     p1.start()
     print('主进程')
     time.sleep(5)
-    print('主进程退出前关闭全部子进程')
-    p1.terminate()        # 结束子进程
+    print('主进程退出前关闭全部修改子进程中变量')
+    #p1.need_end = False
+    p1.end()
+    print(p1.need_end)
+    #p1.close()        # 结束子进程
