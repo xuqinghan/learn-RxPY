@@ -74,6 +74,7 @@ class DataSource(Process):
         self.is_done = True
 
     def terminate(self):
+        #通知run结束
         self.need_run = False
         #等待run结束
         while not self.is_done:
