@@ -6,12 +6,13 @@ from rx import of, operators as ops
 from rx.subject import Subject
 import time
 
-from multiprocessing import Process
+from multiprocessing import Process, Value
 import time
 
+need_end = Value('b', False)
 
-
-def one_channel(para):
+def one_channel(para, need_end):
+    '''必须这样送进1个Value, 才能退出'''
     print(f'开始处理通道{para}')
     #用rx +纯函数定义处理流程
     in_stream = Subject()
@@ -28,13 +29,17 @@ def one_channel(para):
 
     #实际开始
     while True:
+        # 用Event判断结束
+        #print('子进程中 ', need_end.value)
+        if need_end.value:
+            break
         #模拟产生数据
         time.sleep(1)
         data = '哈哈哈'
         #推送到in_stream 进行梳理
         in_stream.on_next(data)
 
-
+    print('子进程结束')
 
 class DataSource(Process):
     '''暂时无法如此运行？
@@ -97,13 +102,18 @@ class DataSource(Process):
 
 if __name__ == '__main__':
 
-    #p1= Process(target=one_channel,args=('1',))
-    p1 = DataSource('asdf')
+    #准备开始
+    need_end.value = False
+    p1= Process(target=one_channel,args=('1',need_end))
+    #p1 = DataSource('asdf')
     p1.start()
     print('主进程')
     time.sleep(5)
-    print('主进程退出前关闭全部修改子进程中变量')
+    print('主进程退出前关闭进程')
+    #通知结束
+    need_end.value = True
+    print('主进程中 need_end', need_end.value)
     #p1.need_end = False
-    p1.end()
-    print(p1.need_end)
+    #p1.terminate()
+    #print(p1.need_end)
     #p1.close()        # 结束子进程
