@@ -31,22 +31,16 @@ def i2t(item_i):
     return {'ts':item_i['ts'], 'type': 't', 'data': 't'+item_i['data'][1:-1]}
 
 def demo1():
-    '''先分流，再汇流？'''
-    source = of(
-    {'ts':0, 'type': 'v', 'data': 'v1'},
-    {'ts':1, 'type': 'a', 'data': 'a1'},
-    {'ts':2, 'type': 'a', 'data': 'a2'},
-    {'ts':3, 'type': 'v', 'data': 'v2'},
-    {'ts':4, 'type': 'a', 'data': 'a3'},
-    {'ts':5, 'type': 'a', 'data': 'a4'},
-    {'ts':6, 'type': 'v', 'data': 'v3'},
-    )
+    '''不能运行 不能临时订阅流！'''
+    #数据源要是热的，保证每个队列
+    source_stream = Subject()
 
-    audio_stream = source.pipe(
+
+    audio_stream = source_stream.pipe(
         op.filter(lambda i: i['type'] == 'a') #过滤出a
     )
 
-    img_stream = source.pipe(
+    img_stream = source_stream.pipe(
         op.filter(lambda i: i['type'] == 'v'), #过滤出v
         op.map(v2i), 
     )
@@ -68,44 +62,56 @@ def demo1():
             但是不work
         '''
         ts_end = item_t['ts']
-
+        print(item_t)
         items_in_time_seg = []
         #print(item_t)
         #添加到
-        #push_to_composed(item_t)
+        push_to_time_seg = lambda item: items_in_time_seg.append(item)
         #composed_stream.on_next(item_t)
-        target_before_stream = target_stream.pipe(
-        op.filter(lambda i: i['ts'] == ts_end) #过滤出i
-        )
+        # target_before_stream = target_stream.pipe(
+        # op.filter(lambda i: i['ts'] <= ts_end) #过滤出i
+        # ).subscribe(push_to_time_seg)
 
         img_before_t1_stream = img_stream.pipe(
-        op.filter(lambda i: i['ts'] == ts_end) #过滤出i
-        )#.subscribe(push_to_composed)
+            op.filter(lambda i: i['ts'] <= ts_end) #过滤出i
+        ).subscribe(push_to_time_seg)
 
         audio_before_t1_stream = audio_stream.pipe(
-        op.filter(lambda i: ts_beg< i['ts'] <= ts_end) #过滤出i
-        )#.subscribe(push_to_composed)
+            op.filter(lambda i: ts_beg< i['ts'] <= ts_end) #过滤出i
+        ).subscribe(push_to_time_seg)
+
         #后面再次统一处理(比如汇总到records)
-        obs_list = [img_before_t1_stream, target_before_stream, audio_before_t1_stream]
-        records_stream = rx.merge(*obs_list)
+        #obs_list = [img_before_t1_stream, target_before_stream, audio_before_t1_stream]
+        #records_stream = rx.merge(*obs_list)
         #records_stream.subscribe(lambda r: items_in_time_seg.append(r) )
         #print(items_in_time_seg)
         #records_stream.subscribe(lambda r: print(r) )
-        records_stream.subscribe(lambda item: composed_stream.on_next(item))
+        #records_stream.subscribe(lambda item: composed_stream.on_next(item))
         #按时间戳排序
-        # result_list = sorted(items_in_time_seg, key=lambda x: x['ts'])
-        # print(result_list)
+        result_list = sorted(items_in_time_seg, key=lambda x: x['ts'])
+        print(result_list)
         # for r in result_list:
         #     composed_stream.on_next(item)
 
         ts_beg = ts_end    
 
-
-
+    target_stream.subscribe(create_compose)
     composed_stream.subscribe(lambda value: print("Received {0}".format(value)))
 
-    #必须最后才开始target推送
-    target_stream.subscribe(create_compose)
+
+
+    #最后才开始推送数据
+    for item in [
+        {'ts':0, 'type': 'v', 'data': 'v1'},
+        {'ts':1, 'type': 'a', 'data': 'a1'},
+        {'ts':2, 'type': 'a', 'data': 'a2'},
+        {'ts':3, 'type': 'v', 'data': 'v2'},
+        {'ts':4, 'type': 'a', 'data': 'a3'},
+        {'ts':5, 'type': 'a', 'data': 'a4'},
+        {'ts':6, 'type': 'v', 'data': 'v3'},
+    ]:
+        source_stream.on_next(item)  
+
 
 
 # class PriorityQueue(object):
@@ -145,7 +151,6 @@ def demo3():
 
     push_to_pq = lambda item: pq.put((item['ts'], item))
 
-
     audio_stream = source_stream.pipe(
         op.filter(lambda i: i['type'] == 'a') #过滤出a
     )
@@ -153,20 +158,18 @@ def demo3():
 
     img_stream = source_stream.pipe(
         op.filter(lambda i: i['type'] == 'v'), #过滤出v
-        op.map(v2i), 
+        op.map(v2i),  #得到i
     )
     img_stream.subscribe(push_to_pq)
 
     target_stream = img_stream.pipe(
-        op.map(i2t), 
+        op.map(i2t), #得到t
     )
 
-    #根据最慢的target_stream组装最终结果
-    #全局变量
-
+    #根据最慢的target_stream组装同步后的最终结果
     composed_stream = Subject()
 
-    def create_compose(item_t):
+    def send_all_until(item_t):
         '''把t前后时段的全部东西汇总，然后按timestamp排序，再输出
             但是不work
         '''
@@ -194,11 +197,11 @@ def demo3():
         for item in res:
             composed_stream.on_next(item)
 
-
-    target_stream.subscribe(create_compose)
+    target_stream.subscribe(send_all_until)
 
     composed_stream.subscribe(lambda value: print("Received {0}".format(value)))
 
+    #-------------stream的管道完全连接完毕----------------------------
 
     #最后才开始推送数据
     for item in [
@@ -210,10 +213,10 @@ def demo3():
         {'ts':5, 'type': 'a', 'data': 'a4'},
         {'ts':6, 'type': 'v', 'data': 'v3'},
     ]:
-        source_stream.on_next(item)    
+        source_stream.on_next(item)
 
 
 if __name__ == '__main__':
-    #demo1()
+    demo1()
     #demo2_pq()
-    demo3()
+    #demo3()
