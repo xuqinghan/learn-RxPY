@@ -184,6 +184,7 @@ def demo3():
                 #如果拿多了，要塞回去, 且停止继续拿
                 pq.put((ts, item))
                 break
+            #如果拿完了，也退出
             if pq.qsize() == 0:
                 break
         #最后补上最慢的target
