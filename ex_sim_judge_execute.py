@@ -84,9 +84,7 @@ s0->(量2-裁2)-sB->(决2)->sB
 
 “XX不变” 不需要产生记录，不需要发送
 
-
 '''
-
 
 
 from datetime import datetime
@@ -113,12 +111,12 @@ def 天梁A(para):
     time.sleep(1)
     print(f'{datetime.now()} A量裁 结束')
     #简化版的量裁结果
-    if random.randint(1, 6) <= 3:
+    if random.randint(1, 6) <= 0:
         #不变
         return {'kind': 'N',
                 'attr': 'A'}
     else:
-        return {'tx': datetime.now().isoformat(),
+        return {'tx': datetime.now(),
                 'kind': 'U',
                 'attr': 'A',
                 'from': 0,   #量的结果。保证执行时不再查询！
@@ -127,19 +125,20 @@ def 天梁A(para):
 
 def 天梁B(para):
     '''
-    查XX改B
+        查XX改B
     '''
     #print(message_location)
-    print(f'{datetime.now()} 进行B裁定')
+    print(f'{datetime.now()} B量裁 开始')
     #裁决时间长
-    time.sleep(1)
-    if random.randint(1, 6) <= 3:
+    time.sleep(2)
+    print(f'{datetime.now()} B量裁 结束')
+    if random.randint(1, 6) <= 0:
         #不变
         return {'kind': 'N',
                 'attr': 'B'}
     else:
         #简化版的量裁结果
-        return {'tx': datetime.now().isoformat(),
+        return {'tx': datetime.now(),
                 'kind': 'U',
                 'attr': 'B',
                 'from': 0,
@@ -154,11 +153,12 @@ def 天梁C(args):
         如果 A B 的记录是U 改变，则用 res['to']代替去states中查询
         如果不变，则需要去states['A']中实际查询
     '''
+    print(f'{datetime.now()} C量裁 开始')
     res_A, res_B = args
     print('天梁C res_A', res_A)
     print('天梁C res_B', res_B)
     #print(message_location)
-    print(f'{datetime.now()} 进行C裁定')
+
 
     for res1 in args:
         attr = res1['attr']
@@ -177,15 +177,17 @@ def 天梁C(args):
             value_B = value_new
 
     #裁决时间立决
-    #time.sleep(1)
+    time.sleep(1)
     value_new = value_A + value_B
+    print(f'{datetime.now()} C量裁 结束')
     #简化版的量裁结果
-    return {'tx': datetime.now().isoformat(),
+    return {'tx': datetime.now(),
             'kind': 'U',
             'attr': 'C',
             'from': 0,
             'to': value_new,
             }
+
 
 def 决(res1):
     '''副作用！修改状态'''
@@ -204,65 +206,82 @@ def 决(res1):
 # update_zoc_stream = rx.merge(*obs_list)
 
 operation_maneuver = Subject()
-obs_list = []
 # update_zoc -> zoc_changed  如果没更新,则不产生
 # 不订阅subject, 而是用op 改变成其他stream, 过滤掉zoc没有改变的情况
 
+#结果作为subject 作为hot source
+subject_dict = {name: Subject() for name in ['A', 'B', 'C']}
 
-A_trigger_stream = Subject()
-A_trigger_stream.subscribe(operation_maneuver)
-A_check_stream = A_trigger_stream.pipe(
+
+#临时的流仅供subject订阅，不需要命名
+temp_stream = operation_maneuver.pipe(
 #A_check_stream = operation_maneuver.pipe(
     ops.map(天梁A),
     ops.do_action(决)
-)
-obs_list.append(A_check_stream)
+).subscribe(subject_dict['A'])
 
-B_check_stream = operation_maneuver.pipe(
+
+operation_maneuver.pipe(
     ops.map(天梁B),
     ops.do_action(决)
-)
-obs_list.append(B_check_stream)
+).subscribe(subject_dict['B'])
 
-#变成hot 否则订阅会再次执行一次
-C_trigger_stream = Subject()
+
 #C_trigger_stream.subscribe(rx.zip(*[A_check_stream, B_check_stream]))
-
-#C_check_stream = C_trigger_stream.pipe(
-C_check_stream = rx.zip(*[A_check_stream, B_check_stream]).pipe(
+#临时的流不需要保存
+rx.zip(*[subject_dict['A'], subject_dict['B']]).pipe(
     ops.map(天梁C),
     ops.do_action(决)
-)
-obs_list.append(C_check_stream)
+).subscribe(subject_dict['C'])
 
-#后面再次统一处理(比如汇总到records， 集中保存或者发送)
-records_stream = rx.merge(*obs_list)
+
+records_stream = Subject()
+
+#后面再次统一处理 过滤掉不变N的记录
+rx.merge(*(subject_dict.values())).pipe(
+    ops.filter(lambda x: x['kind'] != 'N'),
+).subscribe(records_stream)
+
 
 #模拟汇总
 records = []
-records_stream.subscribe(lambda x: records.append(x))
+def handle_records(record1):
+    records.append(record1)
 
+records_stream.subscribe(handle_records)
 
 #print(d)
 #产生数据 可以没有数据！一样触发裁决（回合开始结束时的XX鉴定！）
-message_location = {'tx_time': datetime.now().isoformat(),
-            'kind': 'U',
-            'table': 'location',
-            'pk': 1,
-            'attr': 'pos',
-            'v_from': None,
-            'v_to': '0717',
-            'war_time': 'H+1',
-            }
-
-
+# message_location = {'tx_time': datetime.now().isoformat(),
+#             'kind': 'U',
+#             'table': 'location',
+#             'pk': 1,
+#             'attr': 'pos',
+#             'v_from': None,
+#             'v_to': '0717',
+#             'war_time': 'H+1',
+#             }
+message_location = {}
 
 #A_check_stream.subscribe(print)
-C_check_stream.subscribe(print)
+#C_check_stream.subscribe(print)
 print('触发1次operation_maneuver裁决')
 operation_maneuver.on_next(message_location)
 print('1次operation_maneuver裁决后')
-print(records)
+
+#后处理：
+#record需要排序，转格式
+def post_process(records):
+    print('后处理')
+    #需要排序
+    print('排序前', records)
+    records = sorted(records, key=lambda x: x['tx'])
+    print('排序后', records)
+    #保存
+    #发送走
+
+
+post_process(records)
 
 # #改变生存状态
 # survival_changed_stream.on_next({'tx_time': datetime.now().isoformat(),
