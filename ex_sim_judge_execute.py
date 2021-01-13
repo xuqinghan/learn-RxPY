@@ -94,7 +94,7 @@ import random
 #------纯函数 注入game-------------
 
 #外部状态，量的时候需要查询，决的时候需要修改
-states = {'A': 0, 'B': 0, 'C': 0}
+states = {'A': 0, 'B': 0, 'C': 0, 'D': 0}
 
 
 def 天梁A(para):
@@ -186,6 +186,23 @@ def 天梁C(args):
             }
 
 
+def 天梁D(para):
+    '''
+        在C之后
+    '''
+    #print(message_location)
+    print(f'{datetime.now()} D量裁 开始')
+    #裁决时间长
+    time.sleep(1)
+    print(f'{datetime.now()} D量裁 结束')
+    return {'tx': datetime.now(),
+            'kind': 'U',
+            'attr': 'D',
+            'from': states['D'],
+            'to': para['to']*2,
+            }
+
+
 def 决(res1):
     '''副作用！修改状态'''
     if res1['kind'] == 'U':
@@ -207,7 +224,7 @@ operation_maneuver = Subject()
 # 不订阅subject, 而是用op 改变成其他stream, 过滤掉zoc没有改变的情况
 
 #结果作为subject 作为hot source
-subject_dict = {name: Subject() for name in ['A', 'B', 'C']}
+subject_dict = {name: Subject() for name in ['A', 'B', 'C', 'D']}
 
 
 #临时的流仅供subject订阅，不需要命名
@@ -230,6 +247,12 @@ rx.zip(*[subject_dict['A'], subject_dict['B']]).pipe(
     ops.map(天梁C),
     ops.do_action(决)
 ).subscribe(subject_dict['C'])
+
+#C之后增加D
+subject_dict['C'].pipe(
+    ops.map(天梁D),
+    ops.do_action(决)
+).subscribe(subject_dict['D'])
 
 
 records_stream = Subject()
