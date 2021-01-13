@@ -5,7 +5,6 @@
 3 修改state  决
 4 走表
 
-
 天梁 = "判" "量+裁"
 天刑 = "决" execute 执行
 
@@ -26,11 +25,9 @@ else:
     record1 = None
 return record1
 
-
 rx  用纯函数实现：从不可变数据流1->不可变数据流2
 "XX改变"的事件，要落实到事件上：CUD记录！
 问题是：副作用：在何时执行？
-
 
 1. side effects 副作用？
 

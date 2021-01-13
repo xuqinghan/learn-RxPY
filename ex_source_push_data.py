@@ -104,7 +104,7 @@ if __name__ == '__main__':
 
     #准备开始
     need_end.value = False
-    p1= Process(target=one_channel,args=('1',need_end))
+    p1= Process(target=one_channel, args=('1', need_end))
     #p1 = DataSource('asdf')
     p1.start()
     print('主进程')
