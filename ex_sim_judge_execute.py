@@ -5,12 +5,12 @@
 3 修改state  决
 4 走表
 
-天梁 = "判" "量+裁"
+天梁 = "判" "量(罪名) + 裁(刑名)"
 天刑 = "决" execute 执行
 
 "判"：
-    1 "量" = if else cond switch... check各构成要件 requirements
-    2 "裁": 给出裁定结果
+    1 "量(罪名)" = if else cond switch... check各构成要件 requirements
+    2 "裁(刑名)": 给出裁定结果
 "决"：
     1 执行   修改状态
     2 保存   持久化
